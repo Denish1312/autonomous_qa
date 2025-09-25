@@ -1,0 +1,105 @@
+name: Autonomous QA Agent Workflow
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'  # Enable pip caching
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-playwright
+
+    - name: Install Playwright Browsers
+      run: |
+        playwright install --with-deps chromium
+        playwright install-deps
+
+    - name: Start Qdrant
+      run: |
+        echo "Waiting for Qdrant to be ready..."
+        timeout 30 bash -c 'until curl -s http://localhost:6333/health; do sleep 1; done'
+
+    - name: Ingest Historical Data
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        QDRANT_URL: "http://localhost:6333"
+      run: |
+        python -c "from src.rag.ingestion import ingest_data; ingest_data()"
+
+    - name: Run QA Agent on Sample User Stories
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        JIRA_URL: ${{ secrets.JIRA_URL }}
+        JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+        JIRA_PASSWORD: ${{ secrets.JIRA_PASSWORD }}
+        JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        QDRANT_URL: "http://localhost:6333"
+      run: |
+        cat > run_agent.py << 'EOL'
+        from src.agent.graph import AutonomousQAAgent
+
+        # List of user stories to test
+        user_stories = [
+            "As a premium user, I want to export my dashboard as a PDF.",
+            "As a user, I want to view my account settings.",
+            "As an admin, I want to manage user permissions."
+        ]
+
+        def run_tests():
+            agent = AutonomousQAAgent()
+            results = []
+            
+            for story in user_stories:
+                print(f"\n--- Testing User Story: {story} ---")
+                try:
+                    result = agent.graph.invoke({"user_story": story})
+                    results.append({"story": story, "success": True, "result": result})
+                except Exception as e:
+                    print(f"Error testing story: {str(e)}")
+                    results.append({"story": story, "success": False, "error": str(e)})
+            
+            # Print summary
+            print("\n=== Test Summary ===")
+            for result in results:
+                status = "✅ Passed" if result["success"] else "❌ Failed"
+                print(f"{status} - {result['story']}")
+            
+            # Exit with failure if any test failed
+            if not all(r["success"] for r in results):
+                exit(1)
+
+        if __name__ == "__main__":
+            run_tests()
+        EOL
+        python run_agent.py
+
+    - name: Upload test artifacts
+      if: always()  # Run even if previous steps failed
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test-results/
+          playwright-report/
+        retention-days: 30
