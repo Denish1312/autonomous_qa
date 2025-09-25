@@ -1,0 +1,24 @@
+[project]
+name = "autonomous_qa"
+version = "0.1.0"
+description = "An AI-driven autonomous QA system."
+requires-python = ">=3.10"
+dependencies = [
+    "langchain",
+    "langgraph",
+    "langchain-openai",
+    "playwright",
+    "qdrant-client",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+    "atlassian-python-api",
+    "PyGithub",
+    "ragas",
+    "lxml",
+    "beautifulsoup4",
+    "sentence-transformers",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black"]

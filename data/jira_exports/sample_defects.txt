@@ -1,0 +1,17 @@
+Defect ID: PROJ-123
+Severity: High
+Component: Authentication
+Summary: User cannot log in with correct credentials on Safari
+Description: When a user enters the correct username and password on Safari, the login button spins indefinitely and they are never logged in. This issue does not occur on Chrome or Firefox. The error seems to be related to how session cookies are handled in WebKit.
+
+Defect ID: PROJ-124
+Severity: Medium
+Component: Payment Gateway
+Summary: Currency conversion incorrect for EUR to GBP
+Description: When processing a payment in EUR, the final amount charged in GBP is incorrect. The system appears to be using a stale or hardcoded exchange rate. The third-party API for exchange rates might not be getting called correctly.
+
+Defect ID: PROJ-125
+Severity: Low
+Component: UI
+Summary: "Cancel" button is misaligned on mobile viewports
+Description: On screen widths less than 480px, the "Cancel" button in the user profile modal is pushed outside of the modal's boundaries, making it difficult to click. This is a CSS flexbox issue.
